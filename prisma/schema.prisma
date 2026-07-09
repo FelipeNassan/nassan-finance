@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AppUser {
+  id        String   @id @default(cuid()) @map("app_user_id")
+  createdAt DateTime @default(now()) @map("app_user_created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("app_user_updated_at")
+
+  // Autenticação própria (sem Clerk). Campos anuláveis: o dev-user
+  // (AUTH_DISABLED) e usuários em cadastro pendente não têm tudo preenchido.
+  firstName       String?   @map("app_user_first_name") @db.VarChar(60)
+  lastName        String?   @map("app_user_last_name") @db.VarChar(60)
+  birthDate       DateTime? @map("app_user_birth_date") @db.Date
+  email           String?   @unique @map("app_user_email") @db.VarChar(255)
+  emailVerifiedAt DateTime? @map("app_user_email_verified_at")
+  phone           String?   @map("app_user_phone") @db.VarChar(20)
+  phoneVerifiedAt DateTime? @map("app_user_phone_verified_at")
+  passwordHash    String?   @map("app_user_password_hash") @db.VarChar(255)
+  // Conta ativa = cadastro completo (senha definida). Pendente até lá.
+  activatedAt     DateTime? @map("app_user_activated_at")
+  
+  avatar          String?   @db.Text @map("app_user_avatar")
+
+  expenseCategories ExpenseCategory[]
+  paymentMethods    PaymentMethod[]
+  banks             Bank[]
+  cards             Card[]
+  expenses          Expense[]
+
+  phoneVerificationCodes  PhoneVerificationCode[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  refreshTokens           RefreshToken[]
+  authLogs                AuthLog[]
+
+  @@map("app_user")
+}
+
+model PhoneVerificationCode {
+  id        Int       @id @default(autoincrement()) @map("phone_verification_code_id")
+  userId    String    @map("app_user_id")
+  phone     String    @map("phone_verification_code_phone") @db.VarChar(20)
+  code      String    @map("phone_verification_code_code") @db.VarChar(6)
+  attempts  Int       @default(0) @map("phone_verification_code_attempts")
+  expiresAt DateTime  @map("phone_verification_code_expires_at")
+  usedAt    DateTime? @map("phone_verification_code_used_at")
+  createdAt DateTime  @default(now()) @map("phone_verification_code_created_at")
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_phone_verification_code_user")
+  @@map("phone_verification_code")
+}
+
+model EmailVerificationToken {
+  id        Int       @id @default(autoincrement()) @map("email_verification_token_id")
+  userId    String    @map("app_user_id")
+  token     String    @unique @map("email_verification_token_token") @db.VarChar(128)
+  expiresAt DateTime  @map("email_verification_token_expires_at")
+  usedAt    DateTime? @map("email_verification_token_used_at")
+  createdAt DateTime  @default(now()) @map("email_verification_token_created_at")
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_email_verification_token_user")
+  @@map("email_verification_token")
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement()) @map("password_reset_token_id")
+  userId    String    @map("app_user_id")
+  token     String    @unique @map("password_reset_token_token") @db.VarChar(128)
+  expiresAt DateTime  @map("password_reset_token_expires_at")
+  usedAt    DateTime? @map("password_reset_token_used_at")
+  createdAt DateTime  @default(now()) @map("password_reset_token_created_at")
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_password_reset_token_user")
+  @@map("password_reset_token")
+}
+
+// Refresh tokens persistidos (hash) — permitem revogar sessões (logout,
+// troca de senha) e rotação a cada uso.
+model RefreshToken {
+  id        Int       @id @default(autoincrement()) @map("refresh_token_id")
+  userId    String    @map("app_user_id")
+  tokenHash String    @unique @map("refresh_token_hash") @db.VarChar(128)
+  expiresAt DateTime  @map("refresh_token_expires_at")
+  revokedAt DateTime? @map("refresh_token_revoked_at")
+  createdAt DateTime  @default(now()) @map("refresh_token_created_at")
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_refresh_token_user")
+  @@map("refresh_token")
+}
+
+// Trilha de eventos de autenticação; falhas de login alimentam o anti-brute-force.
+model AuthLog {
+  id        Int      @id @default(autoincrement()) @map("auth_log_id")
+  userId    String?  @map("app_user_id")
+  email     String?  @map("auth_log_email") @db.VarChar(255)
+  event     String   @map("auth_log_event") @db.VarChar(40)
+  ip        String?  @map("auth_log_ip") @db.VarChar(45)
+  createdAt DateTime @default(now()) @map("auth_log_created_at")
+
+  user AppUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, event, createdAt], name: "idx_auth_log_email_event")
+  @@map("auth_log")
+}
+
+model ExpenseCategory {
+  id       Int     @id @default(autoincrement()) @map("expense_category_id")
+  userId   String  @map("app_user_id")
+  name      String    @map("expense_category_name") @db.VarChar(60)
+  isActive  Boolean   @default(true) @map("expense_category_is_active")
+  order     Int       @default(0) @map("expense_category_order")
+  createdAt DateTime  @default(now()) @map("expense_category_created_at")
+  deletedAt DateTime? @map("expense_category_deleted_at")
+
+  user     AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([userId, name])
+  @@map("expense_category")
+}
+
+model PaymentMethod {
+  id       Int     @id @default(autoincrement()) @map("payment_method_id")
+  userId   String  @map("app_user_id")
+  name      String    @map("payment_method_name") @db.VarChar(40)
+  isActive  Boolean   @default(true) @map("payment_method_is_active")
+  order     Int       @default(0) @map("payment_method_order")
+  createdAt DateTime  @default(now()) @map("payment_method_created_at")
+  deletedAt DateTime? @map("payment_method_deleted_at")
+
+  user     AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([userId, name])
+  @@map("payment_method")
+}
+
+model Bank {
+  id       Int     @id @default(autoincrement()) @map("bank_id")
+  userId   String  @map("app_user_id")
+  name     String  @map("bank_name") @db.VarChar(60)
+  logo     String? @map("bank_logo") @db.Text
+  isActive Boolean @default(true) @map("bank_is_active")
+
+  user         AppUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards        Card[]
+  expenses     Expense[]
+  expenseBanks ExpenseBank[]
+
+  @@unique([userId, name])
+  @@map("bank")
+}
+
+model Card {
+  id         Int     @id @default(autoincrement()) @map("card_id")
+  userId     String  @map("app_user_id")
+  bankId     Int     @map("bank_id")
+  nickname   String  @map("card_nickname") @db.VarChar(60)
+  closingDay Int     @map("card_closing_day") @db.SmallInt
+  dueDay     Int     @map("card_due_day") @db.SmallInt
+  holderName String? @map("card_holder_name") @db.VarChar(100)
+  brand      String? @map("card_brand") @db.VarChar(30)
+  cardNumber String? @map("card_number") @db.VarChar(25)
+  expiration String? @map("card_expiration") @db.VarChar(5)
+  type       String  @default("Crédito") @map("card_type") @db.VarChar(20)
+  limit      Float?  @map("card_limit")
+  color      String? @map("card_color") @db.VarChar(7)
+  password   String? @map("card_password") @db.VarChar(20)
+  isActive   Boolean @default(true) @map("card_is_active")
+
+  user     AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bank     Bank      @relation(fields: [bankId], references: [id])
+  invoices Invoice[]
+  expenses Expense[]
+
+  @@map("card")
+}
+
+model Invoice {
+  id        Int      @id @default(autoincrement()) @map("invoice_id")
+  cardId    Int      @map("card_id")
+  startDate DateTime @map("invoice_start_date") @db.Date
+  endDate   DateTime @map("invoice_end_date") @db.Date
+  dueDate   DateTime @map("invoice_due_date") @db.Date
+  isPaid    Boolean  @default(false) @map("invoice_is_paid")
+
+  card     Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([cardId, startDate])
+  @@index([cardId], name: "idx_invoice_card")
+  @@map("invoice")
+}
+
+model Holiday {
+  id    Int     @id @default(autoincrement()) @map("holiday_id")
+  name  String  @map("holiday_name") @db.VarChar(80)
+  scope String? @map("holiday_scope") @db.VarChar(20)
+
+  calendarDays CalendarDay[]
+
+  @@map("holiday")
+}
+
+model CalendarDay {
+  date              DateTime @id @db.Date @map("calendar_day_date")
+  weekdayName       String   @map("calendar_day_weekday_name") @db.VarChar(15)
+  dayOfMonth        Int      @map("calendar_day_day_of_month") @db.SmallInt
+  isBusinessDay     Boolean  @map("calendar_day_is_business_day")
+  businessDayNumber Int?     @map("calendar_day_business_day_number") @db.SmallInt
+  holidayId         Int?     @map("holiday_id")
+
+  holiday  Holiday?  @relation(fields: [holidayId], references: [id])
+  expenses Expense[]
+
+  @@map("calendar_day")
+}
+
+model Expense {
+  id              Int      @id @default(autoincrement()) @map("expense_id")
+  userId          String   @map("app_user_id")
+  date            DateTime @map("expense_date") @db.Date
+  amount          Decimal  @map("expense_amount") @db.Decimal(12, 2)
+  description     String?  @map("expense_description") @db.VarChar(255)
+  reason          String?  @map("expense_reason") @db.VarChar(255)
+  trigger         String?  @map("expense_trigger") @db.VarChar(120)
+  categoryId      Int      @map("expense_category_id")
+  paymentMethodId Int      @map("payment_method_id")
+  bankId          Int?     @map("bank_id")
+  cardId          Int?     @map("card_id")
+  invoiceId       Int?     @map("invoice_id")
+  createdAt       DateTime @default(now()) @map("expense_created_at")
+
+  // Soft delete: em vez de apagar, marca como deletado com data e motivo.
+  isDeleted          Boolean   @default(false) @map("expense_is_deleted")
+  deletedAt          DateTime? @map("expense_deleted_at")
+  deletedDescription String?   @map("expense_deleted_description") @db.VarChar(255)
+
+  user          AppUser         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calendarDay   CalendarDay     @relation(fields: [date], references: [date])
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+  paymentMethod PaymentMethod   @relation(fields: [paymentMethodId], references: [id])
+  bank          Bank?           @relation(fields: [bankId], references: [id])
+  card          Card?           @relation(fields: [cardId], references: [id])
+  invoice       Invoice?        @relation(fields: [invoiceId], references: [id])
+  expenseBanks  ExpenseBank[]
+
+  @@index([userId, date], name: "idx_expense_user_date")
+  @@index([categoryId], name: "idx_expense_category")
+  @@index([invoiceId], name: "idx_expense_invoice")
+  @@index([userId, isDeleted], name: "idx_expense_user_deleted")
+  @@map("expense")
+}
+
+model ExpenseBank {
+  expenseId Int     @map("expense_id")
+  bankId    Int     @map("bank_id")
+  amount    Decimal @map("expense_bank_amount") @db.Decimal(12, 2)
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  bank    Bank    @relation(fields: [bankId], references: [id])
+
+  @@id([expenseId, bankId])
+  @@map("expense_bank")
+}

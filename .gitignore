@@ -1,1 +1,40 @@
+# Sistema
 desktop.ini
+.DS_Store
+Thumbs.db
+
+# Dependências
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Variáveis de ambiente (nunca commitar)
+.env
+.env.local
+.env.*.local
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Prisma
+prisma/migrations/dev.db
+
+# Editor
+.vscode/
+.idea/
+
+# Test (pasta removida, entrada mantida por segurança)
+test/
+
+# Relatório gerado pela auditoria (npm run audit:full)
+docs/auditoria.md
+
+# Build artifacts
+*.tsbuildinfo

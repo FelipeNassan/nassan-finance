@@ -1,0 +1,4 @@
+#!/bin/sh
+# Hook de pre-commit do fortn — roda a auditoria rápida (scripts/audit).
+# Instalação (uma vez por clone): npm run hooks:install
+exec node "$(git rev-parse --show-toplevel)/scripts/audit/pre-commit.mjs"
