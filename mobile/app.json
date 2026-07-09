@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "fortn",
+    "slug": "fortn",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "fortn",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FBF9F7",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fortn.app"
+    },
+    "android": {
+      "package": "com.fortn.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#FBF9F7",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FBF9F7",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

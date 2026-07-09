@@ -1,31 +1,66 @@
-# Plano Financeiro de 30 Dias
+# fortn
 
-Muitos conhecem aquela sensação de receber o salário e, semanas depois, não conseguir explicar para onde foi. E o problema, na maioria das vezes, não é quanto se ganha — há pessoas com renda alta que vivem o mesmo sufoco. O dinheiro vira fonte de ansiedade. A vida financeira passa a operar no limite — e o que era desconforto vira armadilha.
+App multiplataforma de gestão financeira pessoal (iPhone > Android > Web).
+Registrar despesas sem fricção, entender para onde o dinheiro vai — com cara de
+fintech premium.
 
-A boa notícia: é possível mudar essa realidade em 30 dias.
+## Arquitetura
 
-Não com fórmula mágica, nem com planilhas gigantescas impossíveis de manter. O **Plano Financeiro de 30 Dias** é um método simples, prático e executável — pensado para quem precisa de clareza, não de mais complicação.
+Duas aplicações no mesmo repositório:
 
-## O que é este plano
+| Parte | Onde | O quê |
+|---|---|---|
+| **App** | `mobile/` | React Native + Expo (Expo Router, React Query, Zustand, Reanimated) |
+| **Backend** | raiz (`app/api/`) | Next.js 15 servindo somente API REST (Prisma + PostgreSQL) |
 
-Um programa de **4 semanas com tarefas diárias claras** para transformar a vida financeira de forma estruturada e sustentável. Ao longo do plano, você vai:
+Autenticação própria: JWT (access 15 min) + refresh token rotacionado, cadastro
+em etapas com verificação de celular e e-mail, recuperação de senha. Detalhes:
+[.claude/context/arquitetura.md](.claude/context/arquitetura.md) ·
+Referência da API: [docs/api.md](docs/api.md)
 
-- Organizar suas entradas e saídas de dinheiro com clareza
-- Identificar e cortar desperdícios sem destruir sua rotina
-- Criar um plano objetivo para pagamento de dívidas
-- Montar uma reserva de segurança
-- Dar o primeiro passo para investir — mesmo com pouco dinheiro
+## Rodar localmente
 
-## A proposta
+**Pré-requisitos:** Node 20+, Docker Desktop, app Expo Go no celular (mesmo Wi-Fi).
 
-O **Nassan Finance** é a solução para sair do sufoco e chegar ao respiro consciente — construindo uma base sólida para prosperar, gerar riqueza e alcançar liberdade financeira.
+```bash
+# 1. Dependências (backend e app)
+npm install
+npm --prefix mobile install
 
-Viver tranquilo no caos porque "todo mundo está assim" não é aceitável. Toda pessoa é capaz de construir uma vida financeiramente próspera: pagando suas contas, multiplicando seu dinheiro e realizando seus sonhos.
+# 2. Variáveis de ambiente
+cp .env.example .env    # preencher JWT_SECRET e SMTP_* (senha de app do Gmail)
 
----
+# 3. Banco + migrations + calendário 2026
+docker compose up -d
+npx prisma migrate dev
+npx prisma db seed
 
-> *"O dinheiro que ainda não tenho está na construção do conhecimento e das informações que eu ainda não sei."*
+# 4. Tudo de uma vez: Docker + backend (:3000) + Expo (:8081 com QR code)
+npm run dev:all
+```
 
----
+Leia o QR code no **Expo Go**. No Windows, libere as portas 3000 e 8081 no
+firewall (uma vez, como admin):
 
-**Fonte inspiradora deste plano:** [Vídeo da Raquel Mendes](https://www.youtube.com/watch?v=2BzW-Hu0YFg) | **Canal:** [Raquel Mendes - Finanças](https://www.youtube.com/@raquelmendes.financas)
+```powershell
+New-NetFirewallRule -DisplayName "fortn dev 3000" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "fortn expo 8081" -Direction Inbound -LocalPort 8081 -Protocol TCP -Action Allow -Profile Private
+```
+
+### Modo desenvolvimento (sem login)
+
+`AUTH_DISABLED=true` no `.env` + reiniciar o backend: o app entra direto com o
+usuário fixo `dev-user` — útil para testes (inclusive por agentes de IA).
+
+## Estrutura do repositório
+
+```
+fortn/
+├── app/api/          # Backend: rotas REST (auth + despesas)
+├── lib/              # Serviços do backend (auth/, prisma, validações)
+├── prisma/           # Schema, migrations e seed
+├── mobile/           # App React Native + Expo (ver mobile/README.md)
+├── scripts/          # dev-all.mjs (sobe tudo), ensure-db.mjs
+├── docs/             # api.md e documentação do projeto
+└── .claude/          # Contexto, regras e memória para desenvolvimento com IA
+```
